@@ -1,0 +1,6 @@
+domain: k8s-operators-training
+layout:
+- go.kubebuilder.io/v3
+projectName: k8s-operators-training
+repo: k8s-operators-training
+version: "3"
