@@ -3,4 +3,14 @@ layout:
 - go.kubebuilder.io/v3
 projectName: k8s-operators-training
 repo: k8s-operators-training
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: k8s-operators-training
+  group: general
+  kind: User
+  path: k8s-operators-training/api/v1
+  version: v1
 version: "3"
