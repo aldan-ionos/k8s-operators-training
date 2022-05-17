@@ -128,3 +128,34 @@ GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef
+
+.PHONY: install-helm-consul
+install-helm-consul:
+	helm install consul hashicorp/consul --values config/samples/helm-consul-values.yml
+
+.PHONY: uninstall-helm-consul
+uninstall-helm-consul:
+	helm uninstall consul
+
+.PHONY: install-helm-vault
+install-helm-vault:
+	helm install vault hashicorp/vault --values config/samples/helm-vault-values.yml
+
+.PHONY: uninstall-helm-vault
+uninstall-helm-vault:
+	helm uninstall vault
+
+.PHONY: port-forwarding
+port-forwarding:
+	kubectl port-forward vault-0 8200:8200
+
+.PHONY: initialize-vault
+initialize-vault:
+	kubectl exec vault-0 -- vault operator init -key-shares=1 -key-threshold=1 -format=json > cluster-keys.json
+
+.PHONY: unseal-vault
+unseal-vault:
+	export VAULT_UNSEAL_KEY=$(cat cluster-keys.json | jq -r ".unseal_keys_b64[]")
+	kubectl exec vault-0 -- vault operator unseal $${VAULT_UNSEAL_KEY}
+	#echo $${VAULT_UNSEAL_KEY}
+
