@@ -166,7 +166,7 @@ apply-serviceaccount:
 
 .PHONY: auth-to-vault
 auth-to-vault:
-	export VAULT_ADDR="https://0.0.0.0:8200/" && \
+	export VAULT_ADDR="https://172.0.0.1:8200/" && \
 	export VAULT_TOKEN=$$(cat ${SAMPLES_DIR}/cluster-keys.json | jq ".root_token" -r) && \
 	vault auth enable kubernetes && \
 	VAULT_SECRET_NAME=$$(kubectl get serviceaccount vault-auth -o json | jq ".secrets[0].name" -r) && \
