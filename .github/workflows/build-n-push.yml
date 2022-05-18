@@ -20,7 +20,7 @@ jobs:
       id: docker_meta
       uses: crazy-max/ghaction-docker-meta@v1
       with:
-        images: ghcr.io//aldan-ionos/kot
+        images: ghcr.io/aldan-ionos/kot
         tag-sha: true
         tag-edge: false
         tag-latest: true
