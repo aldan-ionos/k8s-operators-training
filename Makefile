@@ -195,3 +195,7 @@ apply-vault-crd:
 apply-vault-secret:
 	kubectl apply -f ${SAMPLES_DIR}/vault-secret.yaml
 
+.PHONY: clone-vault-crd
+clone-vault-crd:
+	git clone https://github.com/DaspawnW/vault-crd-helm.git
+	cd vault-crd-helm/vault-crd && helm repo add vault-crd https://raw.githubusercontent.com/DaspawnW/vault-crd-helm/master
