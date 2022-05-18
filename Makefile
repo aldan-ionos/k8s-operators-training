@@ -181,4 +181,17 @@ auth-to-vault:
 .PHONY: write-vault-policy
 write-vault-policy:
 	vault write sys/policy/mypolicy policy=@${SAMPLES_DIR}/policy.hcl
+	vault write auth/kubernetes/role/vault-role \
+	bound_service_account_names=vault-crd-serviceaccount \
+	bound_service_account_namespaces=vault-crd \
+	policies=mypolicy \
+	ttl=1h
+
+.PHONY: apply-vault-crd
+apply-vault-crd:
+	helm upgrade -i vault vault-crd-helm/vault-crd
+
+.PHONY: apply-vault-secret
+apply-vault-secret:
+	kubectl apply -f ${SAMPLES_DIR}/vault-secret.yaml
 

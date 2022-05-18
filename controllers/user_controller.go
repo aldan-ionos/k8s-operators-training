@@ -18,13 +18,25 @@ package controllers
 
 import (
 	"context"
+	"fmt"
+
+	"k8s.io/apimachinery/pkg/api/errors"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	generalv1 "k8s-operators-training/api/v1"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+var (
+	requeue = ctrl.Result{Requeue: true}
+	done    = ctrl.Result{}
 )
 
 // UserReconciler reconciles a User object
@@ -49,9 +61,41 @@ type UserReconciler struct {
 func (r *UserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
-	// TODO(user): your logic here
+	key := types.NamespacedName{
+		Name:      req.Name,
+		Namespace: req.Namespace,
+	}
 
-	return ctrl.Result{}, nil
+	// Get User CRD
+	user := &generalv1.User{}
+	if err := r.Client.Get(ctx, key, user); err != nil {
+		if errors.IsNotFound(err) {
+			return done, nil
+		}
+		return requeue, err
+	}
+
+	// Create secret based on user CRD
+	if err := r.Create(ctx, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      user.Name,
+			Namespace: user.Namespace,
+		},
+		StringData: map[string]string{
+			"id":       fmt.Sprintf("%d", user.Spec.Id),
+			"username": user.Spec.Username,
+			"password": user.Spec.Password,
+		},
+	}); err != nil {
+		return requeue, err
+	}
+
+	// Delete user CRD
+	if err := r.Delete(ctx, user); err != nil {
+		return requeue, err
+	}
+
+	return done, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
