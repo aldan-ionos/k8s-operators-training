@@ -170,10 +170,15 @@ auth-to-vault:
 	export VAULT_TOKEN=$$(cat ${SAMPLES_DIR}/cluster-keys.json | jq ".root_token" -r) && \
 	vault auth enable kubernetes && \
 	VAULT_SECRET_NAME=$$(kubectl get serviceaccount vault-auth -o json | jq ".secrets[0].name" -r) && \
-	KUBE_HOST=$(kubectl config view --raw --minify --flatten --output="jsonpath={.clusters[].cluster.server}") && \
+	export KUBE_HOST=$$(kubectl config view --raw --minify --flatten --output="jsonpath={.clusters[].cluster.server}") && \
 	kubectl get secret ${VAULT_SECRET_NAME} -o json | jq '.data["ca.crt"]' -r | base64 -d > ca.crt && \
 	vault write auth/kubernetes/config \
-		token_reviewer_jwt="$(kubectl get secret $vaultSecretName -o json | jq .data.token -r | base64 -d)" \
-		kubernetes_host=\
+		token_reviewer_jwt="$(kubectl get secret ${VAULT_SECRET_NAME} -o json | jq .data.token -r | base64 -d)" \
+		kubernetes_host=${KUBE_HOST} \
 		kubernetes_ca_cert=@ca.crt
+
+
+.PHONY: write-vault-policy
+write-vault-policy:
+	vault write sys/policy/mypolicy policy=@${SAMPLES_DIR}/policy.hcl
 
