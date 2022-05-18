@@ -11,6 +11,8 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
+SAMPLES_DIR="${PWD}/config/samples"
+
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # This is a requirement for 'setup-envtest.sh' in the test target.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
@@ -131,7 +133,7 @@ endef
 
 .PHONY: install-helm-consul
 install-helm-consul:
-	helm install consul hashicorp/consul --values config/samples/helm-consul-values.yml
+	helm install consul hashicorp/consul --values ${SAMPLES_DIR}/helm-consul-values.yml
 
 .PHONY: uninstall-helm-consul
 uninstall-helm-consul:
@@ -139,7 +141,7 @@ uninstall-helm-consul:
 
 .PHONY: install-helm-vault
 install-helm-vault:
-	helm install vault hashicorp/vault --values config/samples/helm-vault-values.yml
+	helm install vault hashicorp/vault --values ${SAMPLES_DIR}/helm-vault-values.yml
 
 .PHONY: uninstall-helm-vault
 uninstall-helm-vault:
@@ -151,11 +153,27 @@ port-forwarding:
 
 .PHONY: initialize-vault
 initialize-vault:
-	kubectl exec vault-0 -- vault operator init -key-shares=1 -key-threshold=1 -format=json > cluster-keys.json
+	kubectl exec vault-0 -- vault operator init -key-shares=1 -key-threshold=1 -format=json > ${SAMPLES_DIR}/cluster-keys.json
 
 .PHONY: unseal-vault
 unseal-vault:
-	export VAULT_UNSEAL_KEY=$(cat cluster-keys.json | jq -r ".unseal_keys_b64[]")
-	kubectl exec vault-0 -- vault operator unseal $${VAULT_UNSEAL_KEY}
-	#echo $${VAULT_UNSEAL_KEY}
+	export VAULT_UNSEAL_KEY=$$(cat ${SAMPLES_DIR}/cluster-keys.json | jq -r ".unseal_keys_b64[]") && \
+	kubectl exec vault-0 -- vault operator unseal ${VAULT_UNSEAL_KEY}
+
+.PHONY: apply-serviceaccount
+apply-serviceaccount:
+	kubectl apply -f ${SAMPLES_DIR}/serviceaccount.yaml
+
+.PHONY: auth-to-vault
+auth-to-vault:
+	export VAULT_ADDR="https://0.0.0.0:8200/" && \
+	export VAULT_TOKEN=$$(cat ${SAMPLES_DIR}/cluster-keys.json | jq ".root_token" -r) && \
+	vault auth enable kubernetes && \
+	VAULT_SECRET_NAME=$$(kubectl get serviceaccount vault-auth -o json | jq ".secrets[0].name" -r) && \
+	KUBE_HOST=$(kubectl config view --raw --minify --flatten --output="jsonpath={.clusters[].cluster.server}") && \
+	kubectl get secret ${VAULT_SECRET_NAME} -o json | jq '.data["ca.crt"]' -r | base64 -d > ca.crt && \
+	vault write auth/kubernetes/config \
+		token_reviewer_jwt="$(kubectl get secret $vaultSecretName -o json | jq .data.token -r | base64 -d)" \
+		kubernetes_host=\
+		kubernetes_ca_cert=@ca.crt
 
