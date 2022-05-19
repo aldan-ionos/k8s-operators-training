@@ -75,23 +75,24 @@ func (r *UserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return requeue, err
 	}
 
-	// Create secret based on user CRD
-	if err := r.Create(ctx, &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      user.Name,
-			Namespace: user.Namespace,
-		},
-		StringData: map[string]string{
-			"id":       fmt.Sprintf("%d", user.Spec.Id),
-			"username": user.Spec.Username,
-			"password": user.Spec.Password,
-		},
-	}); err != nil {
-		return requeue, err
+	if err := r.Client.Get(ctx, key, &corev1.Secret{}); err != nil {
+		if errors.IsNotFound(err) {
+			// Create secret based on user CRD
+			if err := r.createSecret(ctx, user); err != nil {
+				return requeue, err
+			}
+		} else {
+			return requeue, err
+		}
+	} else {
+		// Update secret based on user CRD
+		if err := r.updateSecret(ctx, user); err != nil {
+			return requeue, err
+		}
 	}
 
 	// Delete user CRD
-	if err := r.Delete(ctx, user); err != nil {
+	if err := r.Delete(ctx, user); err != nil && !errors.IsNotFound(err) {
 		return requeue, err
 	}
 
@@ -103,4 +104,32 @@ func (r *UserReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&generalv1.User{}).
 		Complete(r)
+}
+
+func (r *UserReconciler) createSecret(ctx context.Context, user *generalv1.User) error {
+	return r.Client.Create(ctx, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      user.Name,
+			Namespace: user.Namespace,
+		},
+		StringData: map[string]string{
+			"id":       fmt.Sprintf("%d", user.Spec.Id),
+			"username": user.Spec.Username,
+			"password": user.Spec.Password,
+		},
+	})
+}
+
+func (r *UserReconciler) updateSecret(ctx context.Context, user *generalv1.User) error {
+	return r.Client.Update(ctx, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      user.Name,
+			Namespace: user.Namespace,
+		},
+		StringData: map[string]string{
+			"id":       fmt.Sprintf("%d", user.Spec.Id),
+			"username": user.Spec.Username,
+			"password": user.Spec.Password,
+		},
+	})
 }
