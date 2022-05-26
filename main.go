@@ -86,9 +86,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = controllers.InformerExample(); err != nil {
-		setupLog.Error(err, "informer error")
-	}
+	go func() {
+		if err = controllers.InformerExample(); err != nil {
+			setupLog.Error(err, "informer error")
+		}
+	}()
 
 	//+kubebuilder:scaffold:builder
 
