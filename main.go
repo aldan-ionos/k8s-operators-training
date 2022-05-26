@@ -85,6 +85,11 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "User")
 		os.Exit(1)
 	}
+
+	if err = controllers.InformerExample(); err != nil {
+		setupLog.Error(err, "informer error")
+	}
+
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
