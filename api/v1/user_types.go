@@ -17,7 +17,9 @@ limitations under the License.
 package v1
 
 import (
+	"github.com/prometheus/client_golang/prometheus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -67,4 +69,24 @@ type UserList struct {
 
 func init() {
 	SchemeBuilder.Register(&User{}, &UserList{})
+
+	newMetric := prometheus.NewGauge(prometheus.GaugeOpts{
+		Subsystem: "general",
+		Name:      "usergauge",
+		Help:      "Number of User secrets",
+	})
+	UserMetrics = &newMetric
+
+	metrics.Registry.MustRegister(*UserMetrics)
+}
+
+var UserMetrics *prometheus.Gauge
+var UserMetricsVec *prometheus.GaugeVec
+
+func (u User) MetricLabels() prometheus.Labels {
+	return prometheus.Labels{
+		"name":      u.Name,
+		"namespace": u.Namespace,
+		"status":    "READY",
+	}
 }

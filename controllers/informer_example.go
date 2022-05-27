@@ -25,17 +25,17 @@ func InformerExample() error {
 	stopper := make(chan struct{})
 	defer close(stopper)
 
-	_ = informer
-
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			node := obj.(*corev1.Pod)
-			value, ok := node.GetLabels()["hello"]
+			pod := obj.(*corev1.Pod)
+			value, ok := pod.GetLabels()["hello"]
 
 			if ok && value == "world" {
 				logger.Info("Hello World")
 			}
 		},
+		UpdateFunc: func(oldObj, newObj interface{}) {},
+		DeleteFunc: func(obj interface{}) {},
 	})
 	go informer.Run(stopper)
 	if !cache.WaitForCacheSync(stopper, informer.HasSynced) {

@@ -21,6 +21,9 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -59,7 +62,7 @@ type UserReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
 func (r *UserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	logger := log.FromContext(ctx)
 
 	key := types.NamespacedName{
 		Name:      req.Name,
@@ -96,6 +99,11 @@ func (r *UserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return requeue, err
 	}
 
+	go func() {
+		if err := r.SetInformer(ctx); err != nil {
+			logger.Error(err, "set informer failed")
+		}
+	}()
 	return done, nil
 }
 
@@ -132,4 +140,35 @@ func (r *UserReconciler) updateSecret(ctx context.Context, user *generalv1.User)
 			"password": user.Spec.Password,
 		},
 	})
+}
+
+func (r *UserReconciler) SetInformer(ctx context.Context) error {
+	logger := log.FromContext(ctx)
+
+	clientset, err := kubernetes.NewForConfig(ctrl.GetConfigOrDie())
+	if err != nil {
+		logger.Error(err, "Could not create clientset")
+	}
+	factory := informers.NewSharedInformerFactory(clientset, 0)
+
+	informer := factory.Core().V1().Secrets().Informer()
+	stopper := make(chan struct{})
+	defer close(stopper)
+
+	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			logger.Info("Incrementing Gauge")
+			(*generalv1.UserMetrics).Inc()
+		},
+		DeleteFunc: func(obj interface{}) {
+			logger.Info("Decrementing Gauge")
+			(*generalv1.UserMetrics).Dec()
+		},
+	})
+	go informer.Run(stopper)
+	if !cache.WaitForCacheSync(stopper, informer.HasSynced) {
+		return fmt.Errorf("timed out waiting for caches to sync")
+	}
+
+	return nil
 }
